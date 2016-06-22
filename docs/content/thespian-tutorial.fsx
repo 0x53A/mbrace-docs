@@ -26,17 +26,41 @@ you learn the MBrace cloud programming model in a provider-independent way.
 ## Initializing Thespian Manually
 
 Your cluster workers will be created automaticaly when using the scripts in the starter pack. You can also
-initialize manually (e.g. from an application) as follows:
+initialize manually (e.g. from an application) as follows (you may need to change the path to the worker exe):
 *)
 
 open MBrace.Thespian
+ThespianWorker.LocalExecutable <- "packages/mbrace.thespian/tools/mbrace.thespian.worker.exe"
 let cluster = 
     ThespianCluster.InitOnCurrentMachine(workerCount = 4, 
                                          logger = ConsoleLogger(), 
                                          logLevel = LogLevel.Info)
 
 (**
-You can create a multi-machine cluster using instances of ``ThespianWorker`` and ``InitOnWorker``. This
-is not covered in this tutorial.
+The above script creates a cluster on the local machine with 4 worker instances.
+You can create a multi-machine cluster using instances of ``ThespianWorker`` and ``InitOnWorker``.
 
+### Multi-machine cluster
+
+First you need to create a cluster on the machine you want to be the master:
 *)
+(** The master needs to run on a well-known uri so that the workers can later connect to it *)
+let hostname = Environment.MachineNam
+let port = 7890
+
+(** To use cloud files, you need the share a directory which is available to all worker instances somewhere *)
+let cloudFileStore = FileSystemStore.Create("\\servername\share)
+
+let cluster =
+    let worker = ThespianWorker.Spawn(hostname, port)
+    ThespianCluster.InitOnWorker(worker, cloudFileStore)
+let uri = cluster.Uri
+printfn "Created new cluster on %s" uri
+
+(**
+Now that you have created the cluster, you need to attach workers to it.
+To do so, run this on all machines:
+*)
+
+let cluster = ThespianCluster.Connect(uri)
+cluster.AttachNewLocalWorkers(4)
